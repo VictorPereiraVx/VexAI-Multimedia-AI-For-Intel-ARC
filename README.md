@@ -1,252 +1,237 @@
 # VexAI — AI Media Processing Tool (Intel Arc Edition)
 
-> A Windows CLI tool for AI-powered image generation, face swapping, video art, and voice conversion — optimized for **Intel Arc GPUs** via DirectML and OpenVINO.
+> Ferramenta CLI para Windows que integra geração de imagem, troca de rosto, arte em vídeo e conversão de voz — otimizada para **GPUs Intel Arc** via DirectML e OpenVINO.
 
 ---
 
-## Table of Contents
+## Índice
 
-- [Overview](#overview)
-- [System Requirements](#system-requirements)
-- [Installing Dependencies](#installing-dependencies)
+- [Visão Geral](#visão-geral)
+- [Requisitos do Sistema](#requisitos-do-sistema)
+- [Instalação Automática](#instalação-automática)
+- [Instalação Manual das Dependências](#instalação-manual-das-dependências)
   - [1. .NET 8 SDK](#1-net-8-sdk)
   - [2. FFmpeg](#2-ffmpeg)
-  - [3. SD.Next (image generation)](#3-sdnext-image-generation)
-  - [4. Deep-Live-Cam (face swap)](#4-deep-live-cam-face-swap)
-  - [5. RVC (voice conversion)](#5-rvc-voice-conversion)
-- [Installing VexAI](#installing-vexai)
-- [Initial Setup](#initial-setup)
-- [Available Commands](#available-commands)
-  - [gerar — Generate image from text](#gerar--generate-image-from-text)
-  - [reimaginar — Reimagine an existing image](#reimaginar--reimagine-an-existing-image)
-  - [clonar — Clone a face into a scene](#clonar--clone-a-face-into-a-scene)
-  - [faceswap — Swap face in video](#faceswap--swap-face-in-video)
-  - [videoart — Apply art style to video](#videoart--apply-art-style-to-video)
-  - [voz — Swap voice in video](#voz--swap-voice-in-video)
-  - [modelos — List RVC models](#modelos--list-rvc-models)
-  - [fila — Queue status](#fila--queue-status)
-  - [config — Reconfigure](#config--reconfigure)
-- [Voice Models (RVC)](#voice-models-rvc)
-- [config.json Structure](#configjson-structure)
+  - [3. SD.Next](#3-sdnext-geração-de-imagem)
+  - [4. Deep-Live-Cam](#4-deep-live-cam-troca-de-rosto)
+  - [5. RVC](#5-rvc-conversão-de-voz)
+- [Configuração Inicial](#configuração-inicial)
+- [Comandos Disponíveis](#comandos-disponíveis)
+- [Modelos de Voz (RVC)](#modelos-de-voz-rvc)
+- [Estrutura do config.json](#estrutura-do-configjson)
 - [FAQ](#faq)
+- [Changelog](#changelog)
 
 ---
 
-## Overview
+## Visão Geral
 
-VexAI is a command-line interface (CLI) that brings multiple AI tools together into a single unified interface. With it you can:
+VexAI unifica várias ferramentas de IA em uma única interface de linha de comando. Tudo configurado e pronto com um único instalador.
 
-| Feature | Description |
+| Funcionalidade | Descrição |
 |---|---|
-| 🎨 **Generate image** | Create images from text (txt2img) via SD.Next |
-| ✨ **Reimagine** | Transform an existing image with a new prompt (img2img) |
-| 🎭 **Face Clone** | Generate scenes preserving a face identity (IP-Adapter) |
-| 🔄 **Face Swap (Fast)** | Swap face in video using DirectML (Intel Arc native) |
-| 💎 **Face Swap (Enhanced)** | Higher quality face swap using OpenVINO |
-| 🎬 **Video Art** | Apply artistic styles to video frame by frame via SD.Next |
-| 🎙️ **Voice Swap** | Replace the voice in a video using RVC |
+| 🎨 **Gerar imagem** | Cria imagens a partir de texto (txt2img) via SD.Next |
+| ✨ **Reimaginar** | Transforma uma imagem existente com novo prompt (img2img) |
+| 🎭 **Clonar rosto** | Gera cenas preservando a identidade de um rosto (IP-Adapter) |
+| 🔄 **Face Swap (Rápido)** | Troca rosto em vídeo usando DirectML (nativo Intel Arc) |
+| 💎 **Face Swap (Aprimorado)** | Troca de rosto em qualidade superior usando OpenVINO |
+| 🎬 **Video Art** | Aplica estilos artísticos em vídeo frame a frame via SD.Next |
+| 🎙️ **Troca de Voz** | Substitui a voz em um vídeo usando RVC |
 
 ---
 
-## System Requirements
+## Requisitos do Sistema
 
-- **Operating System:** Windows 10 or Windows 11 (64-bit)
-- **GPU:** Intel Arc recommended (compatible with DirectML and OpenVINO). NVIDIA GPUs also work via SD.Next.
-- **RAM:** 16 GB minimum recommended
-- **Storage:** 30–50 GB free minimum (AI models take up significant space)
+- **Sistema Operacional:** Windows 10 ou Windows 11 (64-bit)
+- **GPU:** Intel Arc recomendada (compatível com DirectML e OpenVINO). GPUs NVIDIA também funcionam via SD.Next.
+- **RAM:** 16 GB mínimo recomendado
+- **Armazenamento:** 30–50 GB livres mínimo (modelos de IA ocupam bastante espaço)
+- **Git:** instalado e disponível no PATH ([git-scm.com](https://git-scm.com))
+- **Python:** 3.10 ou superior instalado e disponível no PATH
 
 ---
 
-## Installing Dependencies
+## Instalação Automática
 
-Before using VexAI, you need to install and configure all the external tools listed below. Follow each step carefully.
+O VexAI vem com um instalador embutido que cuida de tudo automaticamente:
+
+```
+dotnet run
+```
+
+Na **primeira execução**, o programa detecta que não está configurado e abre o **assistente de instalação**, que irá:
+
+1. Clonar o repositório do **Deep-Live-Cam**
+2. Baixar o **pacote de modelos** diretamente do Google Drive (~1 GB) e extrair automaticamente na pasta `models/`
+3. Criar os scripts de inicialização para Intel Arc (`1_INSTALAR_DEPENDENCIAS.bat` e `2_INICIAR_INTEL_ARC.bat`)
+4. Clonar o **RVC-BETA** e criar os scripts de instalação corrigidos para CPU/OpenVINO
+5. Copiar o modelo de voz padrão (`lula.pth`) para `assets/weights/`
+6. Baixar e instalar o **FFmpeg** automaticamente, registrando o caminho completo no `config.json`
+
+> Você só precisa ter o Git e o Python instalados. O resto é feito pelo VexAI.
+
+### Sobre o download dos modelos do Deep-Live-Cam
+
+O pacote de modelos (~1 GB) está hospedado no Google Drive. Arquivos grandes no Drive exigem uma confirmação de verificação antes do download — o instalador lida com isso automaticamente:
+
+- Faz a requisição inicial e detecta o aviso de verificação do Drive
+- Extrai o token de confirmação da resposta
+- Captura o cookie de sessão necessário
+- Realiza o download real com token + cookie
+- Exibe progresso em % durante o download
+- Se algo falhar, tenta baixar os modelos individualmente como fallback
+
+---
+
+## Instalação Manual das Dependências
+
+Se preferir instalar tudo manualmente em vez de usar o instalador automático, siga os passos abaixo.
 
 ---
 
 ### 1. .NET 8 SDK
 
-VexAI is built in C# and requires .NET 8 to compile and run.
+O VexAI é escrito em C# e requer o .NET 8 para compilar e executar.
 
-1. Go to: [https://dotnet.microsoft.com/en-us/download/dotnet/8](https://dotnet.microsoft.com/en-us/download/dotnet/8)
-2. Download the **SDK** (not the Runtime) for Windows x64.
-3. Run the installer and follow the instructions.
-4. Verify the installation by opening a terminal and typing:
+1. Acesse: [https://dotnet.microsoft.com/en-us/download/dotnet/8](https://dotnet.microsoft.com/en-us/download/dotnet/8)
+2. Baixe o **SDK** (não o Runtime) para Windows x64
+3. Execute o instalador
+4. Verifique:
    ```
    dotnet --version
    ```
-   It should return something like `8.0.x`.
 
 ---
 
 ### 2. FFmpeg
 
-FFmpeg is used internally by VexAI to extract audio, mix tracks, and render final videos.
+Usado internamente para extrair áudio, mixar trilhas e renderizar vídeos finais.
 
-1. Go to: [https://ffmpeg.org/download.html](https://ffmpeg.org/download.html)
-2. Under **Windows**, click on **Windows builds by BtbN** or **gyan.dev**.
-3. Download the `ffmpeg-release-essentials.zip` file (or similar).
-4. Extract the contents to a folder, for example: `C:\ffmpeg`
-5. **Add FFmpeg to the system PATH:**
-   - Open **Control Panel → System → Advanced system settings → Environment Variables**
-   - Under "System variables", select `Path` and click **Edit**
-   - Add the path to the FFmpeg `bin` folder, for example: `C:\ffmpeg\bin`
-   - Click OK on all windows
-6. Verify by opening a new terminal:
+O instalador automático do VexAI baixa e configura o FFmpeg sozinho. Se quiser instalar manualmente:
+
+1. Acesse: [https://ffmpeg.org/download.html](https://ffmpeg.org/download.html)
+2. Baixe a versão **Windows builds by BtbN**
+3. Extraia para uma pasta, por exemplo: `C:\ffmpeg`
+4. Adicione `C:\ffmpeg\bin` ao PATH do sistema
+5. Verifique:
    ```
    ffmpeg -version
    ```
 
+> **Importante:** Se instalado manualmente, defina o caminho completo do `ffmpeg.exe` no campo `FfmpegPath` do `config.json`. O VexAI usa o caminho completo configurado — não depende do PATH do sistema para funcionar.
+
 ---
 
-### 3. SD.Next (image generation)
+### 3. SD.Next (geração de imagem)
 
-SD.Next is the local image generation server (Stable Diffusion). It must be **running** whenever you use the `gerar`, `reimaginar`, `clonar`, or `videoart` commands.
+Servidor local de geração de imagem (Stable Diffusion). Precisa estar **em execução** para os comandos `gerar`, `reimaginar`, `clonar` e `videoart`.
 
-1. Go to: [https://github.com/vladmandic/automatic](https://github.com/vladmandic/automatic)
-2. Follow the installation instructions from the repository. In short:
+1. Acesse: [https://github.com/vladmandic/automatic](https://github.com/vladmandic/automatic)
+2. Clone e entre na pasta:
    ```bash
    git clone https://github.com/vladmandic/automatic
    cd automatic
    ```
-3. On first launch, SD.Next will automatically download the necessary models.
-4. For Intel Arc GPUs, use **DirectML** mode. Edit `webui-user.bat` and add the flag:
+3. Para Intel Arc, edite o `webui-user.bat` e adicione:
    ```
-   set COMMANDLINE_ARGS=--use-directml
+   set COMMANDLINE_ARGS=--use-openvino --api --listen --autolaunch --insecure
    ```
-5. Start the server by running `webui.bat` (or `webui-user.bat`). Wait until you see:
+4. Execute `webui.bat` e aguarde:
    ```
    Running on local URL:  http://127.0.0.1:7860
    ```
-6. Save the full path to the `.bat` startup file — you will need it during VexAI configuration.
 
-> **Tip:** If your PC has an NVIDIA GPU, you can use the standard SD.Next installation without the `--use-directml` flag.
+#### Modelos de imagem
 
-#### Downloading an image model (optional but recommended)
-
-SD.Next works with any `.safetensors` or `.ckpt` model compatible with Stable Diffusion. For better results:
-
-1. Visit [https://civitai.com](https://civitai.com) or [https://huggingface.co](https://huggingface.co)
-2. Download a model of your choice (e.g., **Realistic Vision**, **DreamShaper**, etc.)
-3. Place the file in: `<sdnext>/models/Stable-diffusion/`
-4. Restart SD.Next and select the model in the web interface (http://127.0.0.1:7860)
-
----
-
-### 4. Deep-Live-Cam (face swap)
-
-Deep-Live-Cam is used by the `faceswap` command. VexAI supports **two modes** with separate installations:
-
-#### Fast Mode (DirectML — Intel Arc native)
-
-1. Go to: [https://github.com/hacksider/Deep-Live-Cam](https://github.com/hacksider/Deep-Live-Cam)
-2. Follow the installation instructions for **DirectML** (Intel Arc / AMD):
-   ```bash
-   git clone https://github.com/hacksider/Deep-Live-Cam
-   cd Deep-Live-Cam
-   pip install -r requirements.txt
-   pip install onnxruntime-directml
-   ```
-3. Download the required models as indicated in the repository (usually there is a download script or automatic download link).
-4. Save the path to the Deep-Live-Cam root folder (e.g., `C:\Deep-Live-Cam`).
-
-#### Enhanced Mode (OpenVINO — higher quality)
-
-1. In the same repository, follow the instructions to install with **OpenVINO**:
-   ```bash
-   pip install openvino
-   pip install onnxruntime-openvino
-   ```
-2. Consider using a separate folder to avoid dependency conflicts.
-3. Save the path to this installation folder as well.
-
-> **Note:** Enhanced mode is optional. If you don't need maximum quality, fast mode alone is sufficient.
-
----
-
-### 5. RVC (voice conversion)
-
-RVC (Retrieval-based Voice Conversion) is used by the `voz` command to swap the voice in videos.
-
-1. Go to: [https://github.com/RVC-Project/Retrieval-based-Voice-Conversion-WebUI](https://github.com/RVC-Project/Retrieval-based-Voice-Conversion-WebUI)
-2. Follow the installation guide from the repository:
-   ```bash
-   git clone https://github.com/RVC-Project/Retrieval-based-Voice-Conversion-WebUI
-   cd Retrieval-based-Voice-Conversion-WebUI
-   pip install -r requirements.txt
-   ```
-3. The RVC folder structure must contain:
-   ```
-   <rvc-folder>/
-   ├── venv/               ← Python virtual environment
-   └── assets/
-       └── weights/        ← where .pth voice models are placed
-   ```
-4. Download the required base models as indicated in the repository (usually available on the Releases tab or via download scripts).
-5. Save the path to the RVC root folder (e.g., `C:\RVC-WebUI`).
-
-#### Adding voice models
-
-To use a specific voice, you need a `.pth` file trained with that voice:
-
-1. Find models in the RVC community repository or train your own.
-2. Place the `.pth` file in:
-   ```
-   <rvc-folder>/assets/weights/VoiceName.pth
-   ```
-3. VexAI will automatically list all models found in that folder.
-
----
-
-## Installing VexAI
-
-With all dependencies installed, now install VexAI itself:
-
-```bash
-git clone https://github.com/your-username/VexAI.git
-cd VexAI
-dotnet build
+Coloque arquivos `.safetensors` ou `.ckpt` em `<sdnext>/models/Stable-diffusion/`. O modelo padrão configurado pelo VexAI é o **DreamShaper 8**, baixado de:
+```
+https://huggingface.co/Lykon/dreamshaper-8
 ```
 
-To run directly:
+---
+
+### 4. Deep-Live-Cam (troca de rosto)
+
+Usado pelo comando `faceswap`. O VexAI suporta dois modos:
+
+#### Modo Rápido (DirectML — nativo Intel Arc)
 
 ```bash
-dotnet run
+git clone https://github.com/hacksider/Deep-Live-Cam
+cd Deep-Live-Cam
+python -m venv venv
+call venv\Scripts\activate
+pip install -r requirements.txt
+pip install onnxruntime-directml
 ```
 
-Or to create a compiled standalone executable:
+Os modelos (`inswapper_128.onnx` e `GFPGANv1.4.pth`) são baixados automaticamente pelo instalador do VexAI via pacote do Google Drive. Se preferir baixar manualmente, coloque-os em `Deep-Live-Cam/models/`.
+
+#### Modo Aprimorado (OpenVINO — qualidade superior)
 
 ```bash
-dotnet publish -c Release -r win-x64 --self-contained
+pip install openvino
+pip install onnxruntime-openvino
 ```
-
-The executable will be generated at `bin/Release/net8.0/win-x64/publish/VexAI.exe`.
 
 ---
 
-## Initial Setup
+### 5. RVC (conversão de voz)
 
-On **first launch**, VexAI automatically detects that it has not been configured and opens the **setup wizard**. You can also run it at any time with the `config` command.
+Usado pelo comando `voz`.
 
-The wizard will ask step by step:
+```bash
+git clone https://github.com/RVC-Project/Retrieval-based-Voice-Conversion-WebUI RVC-BETA
+cd RVC-BETA
+python -m venv venv
+call venv\Scripts\activate
+pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
+pip install openvino onnxruntime-openvino
+pip install -r requirements.txt
+pip install audio-separator
+```
 
-| Prompt | What to enter |
+> **Atenção:** O VexAI instala PyTorch com suporte a **CPU/OpenVINO**, não CUDA. Isso é intencional — Intel Arc não usa CUDA (NVIDIA). Instalar a versão CUDA causaria erros ou fallback para CPU sem aceleração.
+
+A estrutura esperada do RVC:
+
+```
+<rvc-folder>/
+├── venv/
+│   └── Scripts/
+│       ├── python.exe
+│       └── audio-separator.exe   ← instalado via pip install audio-separator
+└── assets/
+    └── weights/
+        └── lula.pth              ← copiado automaticamente pelo VexAI
+```
+
+O script de inferência usado pelo VexAI é o `Config/ExtraConfig/infer_cli.py`, incluído no próprio projeto — não depende do `tools/infer_cli.py` do repositório RVC, que nem sempre existe no clone padrão.
+
+---
+
+## Configuração Inicial
+
+Na primeira execução, o VexAI abre o assistente de configuração automaticamente. Você também pode acessá-lo a qualquer momento com o comando `config`.
+
+| Campo | O que informar |
 |---|---|
-| **Output folder** | Where generated files will be saved. E.g.: `C:\Users\Your Name\Documents\VexAI_Output` |
-| **RVC root folder** | Path to the RVC installation. E.g.: `C:\RVC-WebUI` |
-| **Deep-Live-Cam folder (Fast)** | Path to the DirectML installation. E.g.: `C:\Deep-Live-Cam` |
-| **Deep-Live-Cam folder (Enhanced)** | Path to the OpenVINO installation. *(Optional — press Enter to skip)* |
-| **SD.Next .bat path** | Full path to the SD.Next startup `.bat` file. E.g.: `C:\automatic\webui-user.bat` *(Optional)* |
-| **SD.Next API URL** | Leave the default `http://127.0.0.1:7860` unless you use a different port |
-| **Watermark image** | Path to a `.png` file to overlay on outputs. *(Optional)* |
-| **Auto-start SD.Next?** | `y` to start SD.Next automatically when VexAI opens |
+| **Pasta de saída** | Onde os arquivos gerados serão salvos. Ex: `C:\Users\Seu Nome\Documents\VexAI_Output` |
+| **Pasta raiz do RVC** | Caminho da instalação do RVC. Ex: `C:\RVC-BETA` |
+| **Pasta do Deep-Live-Cam (Rápido)** | Instalação com DirectML. Ex: `C:\Deep-Live-Cam` |
+| **Pasta do Deep-Live-Cam (Aprimorado)** | Instalação com OpenVINO. *(Opcional — Enter para pular)* |
+| **Caminho do .bat do SD.Next** | Caminho completo do arquivo `.bat` de inicialização. *(Opcional)* |
+| **URL da API do SD.Next** | Deixe o padrão `http://127.0.0.1:7860` |
+| **Imagem de marca d'água** | Caminho de um `.png` para sobrepor nas saídas. *(Opcional)* |
+| **Iniciar SD.Next automaticamente?** | `y` para iniciar junto com o VexAI |
 
-When finished, the settings are saved to a `config.json` file in the same folder as the executable.
+As configurações são salvas em `config.json` na mesma pasta do executável.
 
 ---
 
-## Available Commands
+## Comandos Disponíveis
 
-After setup, VexAI enters interactive mode. Type a command and press Enter.
+Após a configuração, o VexAI entra em modo interativo:
 
 ```
 VexAI> ajuda
@@ -254,138 +239,95 @@ VexAI> ajuda
 
 ---
 
-### `gerar` — Generate image from text
+### `gerar` — Gerar imagem a partir de texto
 
-Generates an image from a text description (txt2img) using SD.Next.
+Gera uma imagem a partir de uma descrição textual (txt2img) usando SD.Next.
 
-**Prerequisite:** SD.Next must be running at `http://127.0.0.1:7860`.
+**Pré-requisito:** SD.Next em execução em `http://127.0.0.1:7860`.
 
-**Interactive steps:**
-1. Enter the prompt describing the desired image
-2. Choose the quality: `sd (512x512)`, `hd (720p)`, or `fullhd (1080p)`
-3. Answer whether the content is 18+ (enables/disables content filters)
-
-**Example:**
 ```
 VexAI> gerar
-Prompt: a futuristic city at night, neon lights, cyberpunk
-Quality: hd (720p)
-18+ content? n
+Prompt: cidade futurista à noite, neon, cyberpunk
+Qualidade: hd (720p)
+Conteúdo 18+? n
 ```
 
 ---
 
-### `reimaginar` — Reimagine an existing image
+### `reimaginar` — Reimaginar uma imagem existente
 
-Transforms an existing image based on a new prompt (img2img).
+Transforma uma imagem existente com base em um novo prompt (img2img).
 
-**Prerequisite:** SD.Next must be running.
-
-**Interactive steps:**
-1. Provide the path to the input image (`.jpg`, `.png`, etc.)
-2. Enter the prompt describing how to reimagine it
-3. Set the change strength (0.1 = subtle change, 1.0 = full transformation)
-4. Answer whether the content is 18+
-
-**Example:**
 ```
 VexAI> reimaginar
-Image path: C:\photos\portrait.jpg
-Prompt: oil painting, renaissance style
-Change strength: 0.6
+Caminho da imagem: C:\fotos\retrato.jpg
+Prompt: pintura a óleo, estilo renascentista
+Força da mudança: 0.6
 ```
 
 ---
 
-### `clonar` — Clone a face into a scene
+### `clonar` — Clonar rosto em uma cena
 
-Generates new images while preserving the identity of a face from a reference photo, using IP-Adapter.
+Gera novas imagens preservando a identidade de um rosto via IP-Adapter.
 
-**Prerequisite:** SD.Next must be running with IP-Adapter support.
-
-**Interactive steps:**
-1. Enter the prompt for the desired scene/style
-2. Provide the path to the reference face photo
-
-**Example:**
 ```
 VexAI> clonar
-Prompt: astronaut in space, cinematic lighting
-Face photo path: C:\photos\my_face.jpg
+Prompt: astronauta no espaço, iluminação cinematográfica
+Caminho da foto do rosto: C:\fotos\meu_rosto.jpg
 ```
 
 ---
 
-### `faceswap` — Swap face in video
+### `faceswap` — Trocar rosto em vídeo
 
-Replaces the face in a video with the face from a reference photo.
+Substitui o rosto em um vídeo pelo rosto de uma foto de referência.
 
-**Prerequisite:** Deep-Live-Cam installed (fast mode and/or enhanced mode).
-
-**Interactive steps:**
-1. Provide the path to the target video
-2. Provide the path to the photo of the face to insert
-3. Choose the mode: `fast (DirectML)` or `enhanced (OpenVINO)`
-
-**Example:**
 ```
 VexAI> faceswap
-Video path: C:\videos\clip.mp4
-Face photo path: C:\photos\face.jpg
-Mode: fast (DirectML)
+Caminho do vídeo: C:\videos\clipe.mp4
+Foto do rosto: C:\fotos\rosto.jpg
+Modo: fast (DirectML)
 ```
 
 ---
 
-### `videoart` — Apply art style to video
+### `videoart` — Aplicar estilo artístico em vídeo
 
-Applies an artistic style to each frame of a video using SD.Next (frame-by-frame img2img).
+Aplica um estilo artístico a cada frame do vídeo via SD.Next (img2img frame a frame).
 
-**Prerequisite:** SD.Next must be running. **Warning:** long videos can take a very long time.
+> **Atenção:** vídeos longos demoram muito. Use vídeos curtos (menos de 30 segundos) para testes.
 
-**Interactive steps:**
-1. Provide the path to the video
-2. Enter the desired artistic style prompt
-3. Set the change strength (0.1 to 1.0)
-
-**Example:**
 ```
 VexAI> videoart
-Video path: C:\videos\walk.mp4
-Prompt: watercolor painting, soft colors
-Strength: 0.5
+Caminho do vídeo: C:\videos\caminhada.mp4
+Prompt: aquarela, cores suaves
+Força: 0.5
 ```
 
 ---
 
-### `voz` — Swap voice in video
+### `voz` — Trocar voz em vídeo
 
-Replaces the human voice in a video using an RVC model. The pipeline is:
-1. Extracts audio from the video
-2. Separates vocals from instrumentals using UVR-MDX
-3. Converts the voice with the selected RVC model
-4. Mixes the result and renders the final video
+Substitui a voz humana em um vídeo usando um modelo RVC. O pipeline completo é:
 
-**Prerequisite:** RVC installed with at least one `.pth` model in `assets/weights/`.
+1. Extrai o áudio do vídeo
+2. Separa voz e instrumental com UVR-MDX (via `audio-separator`)
+3. Converte a voz com o modelo RVC selecionado (inferência via `infer_cli.py`)
+4. Mixa o resultado e renderiza o vídeo final com FFmpeg
 
-**Interactive steps:**
-1. Provide the path to the video
-2. Choose the available voice model (listed automatically)
-3. Set the pitch — positive values raise pitch, negative values lower it
-
-**Example:**
 ```
 VexAI> voz
-Video path: C:\videos\interview.mp4
-Model: MyVoiceModel
+Caminho do vídeo: C:\videos\entrevista.mp4
+Modelo: lula
 Pitch: 0
 ```
 
 ---
 
-### `modelos` — List RVC models
+### `modelos` — Listar modelos de voz
 
-Lists all `.pth` voice model files available in the RVC `assets/weights/` folder.
+Lista todos os arquivos `.pth` disponíveis em `assets/weights/`.
 
 ```
 VexAI> modelos
@@ -393,20 +335,20 @@ VexAI> modelos
 
 ---
 
-### `fila` — Queue status
+### `fila` — Status da fila
 
-Shows how many jobs are waiting to be processed and whether one is currently running.
+Mostra quantos jobs estão aguardando e se há um em execução.
 
 ```
 VexAI> fila
-[Queue] Pending jobs: 2 | Running: True
+[Fila] Jobs pendentes: 2 | Em execução: Sim
 ```
 
 ---
 
-### `config` — Reconfigure
+### `config` — Reconfigurar
 
-Opens the setup wizard again to change any path or option. New settings are saved immediately to `config.json`.
+Abre o assistente de configuração novamente para alterar qualquer caminho ou opção.
 
 ```
 VexAI> config
@@ -414,74 +356,91 @@ VexAI> config
 
 ---
 
-## Voice Models (RVC)
+## Modelos de Voz (RVC)
 
-To use the `voz` command, you need trained RVC models (`.pth` files).
+Para usar o comando `voz`, você precisa de modelos RVC treinados (arquivos `.pth`).
 
-**Where to find models:**
-- [https://huggingface.co](https://huggingface.co) — search for `rvc voice model`
-- RVC-dedicated communities on Discord and Reddit
-- You can train your own model using the RVC WebUI
+**Onde encontrar:**
+- [https://huggingface.co](https://huggingface.co) — pesquise por `rvc voice model`
+- Comunidades RVC no Discord e Reddit
+- Treine o seu próprio modelo pelo RVC WebUI
 
-**How to install a model:**
-1. Download the desired `.pth` model file
-2. Copy it to: `<rvc-folder>/assets/weights/VoiceName.pth`
-3. VexAI will automatically detect it the next time you run `modelos` or `voz`
+**Como instalar:**
+1. Baixe o arquivo `.pth` desejado
+2. Copie para: `<rvc-folder>/assets/weights/NomeDaVoz.pth`
+3. O VexAI detecta automaticamente na próxima vez que você usar `modelos` ou `voz`
+
+O modelo **lula.pth** já vem instalado por padrão pelo VexAI.
 
 ---
 
-## config.json Structure
+## Estrutura do config.json
 
-The `config.json` file is created automatically in the executable's folder. You can edit it manually if you prefer:
+O arquivo `config.json` é criado automaticamente na pasta do executável. Você pode editá-lo manualmente se preferir:
 
 ```json
 {
   "SdNextUrl": "http://127.0.0.1:7860",
   "SdNextBatPath": "C:\\automatic\\webui-user.bat",
-  "RvcFolderPath": "C:\\RVC-WebUI",
+  "RvcFolderPath": "C:\\RVC-BETA",
   "DeepLiveFastPath": "C:\\Deep-Live-Cam",
   "DeepLiveEnhancedPath": "C:\\Deep-Live-Cam-OpenVINO",
   "WatermarkImagePath": "C:\\logos\\watermark.png",
-  "OutputFolder": "C:\\Users\\Your Name\\Documents\\VexAI_Output",
+  "OutputFolder": "C:\\Users\\Seu Nome\\Documents\\VexAI_Output",
+  "FfmpegPath": "C:\\VexAI\\tools\\ffmpeg\\ffmpeg.exe",
   "AutoStartSdNext": true
 }
 ```
 
-| Field | Description |
+| Campo | Descrição |
 |---|---|
-| `SdNextUrl` | SD.Next API URL (default: `http://127.0.0.1:7860`) |
-| `SdNextBatPath` | Path to the SD.Next startup `.bat` file (optional) |
-| `RvcFolderPath` | RVC root folder (must contain `venv/` and `assets/weights/`) |
-| `DeepLiveFastPath` | Deep-Live-Cam folder with DirectML |
-| `DeepLiveEnhancedPath` | Deep-Live-Cam folder with OpenVINO (optional) |
-| `WatermarkImagePath` | `.png` watermark image path (optional) |
-| `OutputFolder` | Folder where all generated files are saved |
-| `AutoStartSdNext` | `true` to start SD.Next automatically when VexAI opens |
+| `SdNextUrl` | URL da API do SD.Next (padrão: `http://127.0.0.1:7860`) |
+| `SdNextBatPath` | Caminho do `.bat` de inicialização do SD.Next (opcional) |
+| `RvcFolderPath` | Pasta raiz do RVC (deve conter `venv/` e `assets/weights/`) |
+| `DeepLiveFastPath` | Pasta do Deep-Live-Cam com DirectML |
+| `DeepLiveEnhancedPath` | Pasta do Deep-Live-Cam com OpenVINO (opcional) |
+| `WatermarkImagePath` | Caminho da imagem `.png` de marca d'água (opcional) |
+| `OutputFolder` | Pasta onde todos os arquivos gerados são salvos |
+| `FfmpegPath` | Caminho completo do `ffmpeg.exe` — definido automaticamente pelo instalador |
+| `AutoStartSdNext` | `true` para iniciar SD.Next automaticamente junto com o VexAI |
 
 ---
 
 ## FAQ
 
-**Does SD.Next need to be running to use VexAI?**  
-Yes, for the `gerar`, `reimaginar`, `clonar`, and `videoart` commands. For `faceswap` and `voz`, SD.Next is not required. If you set `SdNextBatPath` and enabled `AutoStartSdNext`, VexAI will attempt to start SD.Next automatically.
+**O SD.Next precisa estar em execução para usar o VexAI?**
+Sim, para `gerar`, `reimaginar`, `clonar` e `videoart`. Para `faceswap` e `voz` não é necessário. Se você configurou `SdNextBatPath` e ativou `AutoStartSdNext`, o VexAI tenta iniciá-lo automaticamente.
 
-**Does VexAI work with NVIDIA or AMD GPUs?**  
-Yes. Intel Arc is recommended because it natively supports DirectML and OpenVINO, but SD.Next and Deep-Live-Cam support CUDA (NVIDIA) and ROCm (AMD). Adjust the installations according to each tool's own guide.
+**O VexAI funciona com GPU NVIDIA ou AMD?**
+Sim. Intel Arc é recomendada por ter suporte nativo a DirectML e OpenVINO, mas SD.Next e Deep-Live-Cam suportam CUDA (NVIDIA) e ROCm (AMD). Ajuste as instalações conforme o guia de cada ferramenta.
 
-**Where are the generated files saved?**  
-Everything is saved in the folder defined by `OutputFolder`. Inside it, VexAI organizes files into subfolders:
-- `output/images/` — generated images
-- `output/audio/` — intermediate voice audio files
-- `output/video/` — final faceswap and voiceswap videos
+**Onde ficam os arquivos gerados?**
+Tudo é salvo na pasta definida em `OutputFolder`, organizado em subpastas:
+- `output/images/` — imagens geradas
+- `output/audio/` — arquivos de áudio intermediários do pipeline de voz
+- `output/video/` — vídeos finais de faceswap e voiceswap
 
-**How do I reconfigure VexAI after setup?**  
-Use the `config` command inside the program, or manually edit the `config.json` file.
+**Como reconfigurar o VexAI após a instalação?**
+Use o comando `config` dentro do programa, ou edite manualmente o `config.json`.
 
-**Video processing is taking too long.**  
-The `videoart` command processes frame by frame through SD.Next — long videos are expected to take a long time. Use short videos (under 30 seconds) for initial testing.
+**O processamento de vídeo está demorando demais.**
+O comando `videoart` processa frame a frame pelo SD.Next — vídeos longos são lentos por design. Use vídeos curtos (menos de 30 segundos) para testes iniciais.
+
+**O download dos modelos falhou.**
+O instalador tem fallback automático: se o pacote ZIP do Google Drive falhar, tenta baixar os modelos individualmente. Se ainda assim falhar, baixe manualmente e coloque em `Deep-Live-Cam/models/`.
 
 ---
 
-## License
+## Changelog
 
-MIT
+### Correções recentes
+
+| O que mudou | Antes | Agora |
+|---|---|---|
+| **Download dos modelos Deep-Live-Cam** | Cada modelo baixado individualmente de HuggingFace/GitHub | Pacote ZIP único (~1 GB) baixado do Google Drive com suporte ao aviso de verificação de vírus do Drive (token + cookie), com fallback individual automático |
+| **URL do DreamShaper** | `Lykon/DreamShaper` — repositório errado, arquivo inexistente | `Lykon/dreamshaper-8` — repositório correto |
+| **PyTorch no RVC** | Instalava versão CUDA (`--index-url .../cu118`) — incompatível com Intel Arc | Instala versão CPU (`--index-url .../cpu`) + `openvino` + `onnxruntime-openvino` |
+| **audio-separator** | Não era instalado no `.bat` do RVC — pipeline de voz falhava silenciosamente | Adicionado `pip install audio-separator` ao script de instalação |
+| **infer_cli.py** | Buscava `tools/infer_cli.py` no clone do RVC — arquivo que não existe no branch main | Usa `Config/ExtraConfig/infer_cli.py` incluído no próprio projeto VexAI |
+| **lula.pth no build** | Não era copiado para a pasta de build — ausente ao publicar o executável | Diretiva `<CopyToOutputDirectory>Always</CopyToOutputDirectory>` adicionada ao `.csproj` |
+| **FFmpeg** | Chamado pelo nome `ffmpeg` assumindo PATH do sistema — falhava se não estivesse no PATH | Instalador salva o caminho completo no `config.json`; serviços usam o caminho completo |
