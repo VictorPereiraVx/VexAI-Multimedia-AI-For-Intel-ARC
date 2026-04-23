@@ -1,5 +1,7 @@
+using System.Diagnostics;
 using VexAI.Config;
 using VexAI.Core;
+using VexAI.Installers;
 using VexAI.Services;
 
 namespace VexAI
@@ -23,7 +25,7 @@ namespace VexAI
                 Console.ForegroundColor = ConsoleColor.Yellow;
                 Console.WriteLine("[Config] Primeira execução detectada. Vamos configurar o VexAI.\n");
                 Console.ResetColor();
-                RunSetupWizard();
+                await RunSetupWizard();
             }
 
             StartupManager.StartDependencies(_config);
@@ -38,10 +40,200 @@ namespace VexAI
 
             await RunInteractiveLoop();
         }
+        static bool VerificarRequisitosSistema()
+        {
+            Console.WriteLine("\nVerificando pré-requisitos do sistema...");
 
-        static void RunSetupWizard()
+            bool gitInstalado = VerificarGit();
+            bool pythonInstalado = VerificarPython();
+
+            if (!gitInstalado)
+            {
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine("[X] Erro: Git não foi encontrado.");
+                Console.WriteLine("    Por favor, instale o Git (https://git-scm.com/downloads).");
+                Console.ResetColor();
+            }
+
+            if (!pythonInstalado)
+            {
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine("[X] Erro: Python 3.10.x não foi encontrado ou não está no PATH.");
+                Console.WriteLine("    Por favor, instale o Python 3.10.6 e MARQUE A OPÇÃO 'Add Python to PATH' na instalação.");
+                Console.ResetColor();
+            }
+
+            return gitInstalado && pythonInstalado;
+        }
+
+        static bool VerificarGit()
+        {
+            try
+            {
+                string output = ExecutarComandoTerminal("git", "--version");
+                if (output.ToLower().Contains("git version"))
+                {
+                    Console.ForegroundColor = ConsoleColor.Green;
+                    Console.WriteLine($"[OK] Git detectado: {output.Trim()}");
+                    Console.ResetColor();
+                    return true;
+                }
+                return false;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        static bool VerificarPython()
+        {
+            try
+            {
+                string output = ExecutarComandoTerminal("python", "--version");
+
+                // Verifica se a saída contém "Python 3.10" (Aceita 3.10.6, 3.10.11, etc)
+                if (output.Contains("Python 3.10"))
+                {
+                    Console.ForegroundColor = ConsoleColor.Green;
+                    Console.WriteLine($"[OK] Python detectado: {output.Trim()}");
+                    Console.ResetColor();
+                    return true;
+                }
+                else if (!string.IsNullOrWhiteSpace(output))
+                {
+                    Console.ForegroundColor = ConsoleColor.Yellow;
+                    Console.WriteLine($"[!] Versão incorreta do Python detectada: {output.Trim()}");
+                    Console.WriteLine("    O VexAI necessita estritamente da versão 3.10.x para compatibilidade.");
+                    Console.ResetColor();
+                    return false;
+                }
+                return false;
+            }
+            catch
+            {
+                // Tenta usar "python3" caso o usuário esteja em um ambiente diferente
+                try
+                {
+                    string output2 = ExecutarComandoTerminal("python3", "--version");
+                    if (output2.Contains("Python 3.10"))
+                    {
+                        Console.ForegroundColor = ConsoleColor.Green;
+                        Console.WriteLine($"[OK] Python3 detectado: {output2.Trim()}");
+                        Console.ResetColor();
+                        return true;
+                    }
+                    return false;
+                }
+                catch
+                {
+                    return false;
+                }
+            }
+        }
+
+        static string ExecutarComandoTerminal(string fileName, string arguments)
+        {
+            var process = new Process
+            {
+                StartInfo = new ProcessStartInfo
+                {
+                    FileName = fileName,
+                    Arguments = arguments,
+                    UseShellExecute = false,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    CreateNoWindow = true
+                }
+            };
+
+            process.Start();
+
+            string output = process.StandardOutput.ReadToEnd();
+            string error = process.StandardError.ReadToEnd();
+
+            process.WaitForExit();
+
+            return string.IsNullOrWhiteSpace(output) ? error : output;
+        }
+
+        static async Task Installer(string pastaInstalacao)
+        {
+            Console.WriteLine("=== VexAI Multimedia AI Installer ===");
+
+            var sdInstaller = new downloadDependencies(pastaInstalacao);
+            var deepLiveInstaller = new DeepLiveCamInstaller(pastaInstalacao);
+            var ffmpegInstaller = new FfmpegInstaller(pastaInstalacao);
+            var rvcInstaller = new RvcInstaller(pastaInstalacao);
+
+            try
+            {
+                if (!VerificarRequisitosSistema())
+                {
+                    Console.WriteLine("Erro: Python 3.10.6 ou Git não encontrados.");
+                    return;
+                }
+
+                await sdInstaller.InstallAsync();
+                await deepLiveInstaller.InstallAsync();
+                await ffmpegInstaller.InstallAsync();
+                await rvcInstaller.InstallAsync();
+
+                _config.SdNextBatPath = Path.Combine(pastaInstalacao, "automatic", "iniciar_intel.bat");
+                string deepLiveFolder = Path.Combine(pastaInstalacao, "Deep-Live-Cam");
+                _config.DeepLiveFastPath = deepLiveFolder;
+                _config.DeepLiveEnhancedPath = deepLiveFolder;
+                _config.RvcFolderPath = Path.Combine(pastaInstalacao, "RVC-BETA");
+
+                Console.WriteLine("\nInstalação concluída com sucesso!");
+                Console.WriteLine("Pressione qualquer tecla para sair...");
+                Console.ReadKey();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Erro crítico durante a instalação: {ex.Message}");
+            }
+        }
+
+        static async Task RunSetupWizard()
         {
             Console.WriteLine("=== CONFIGURAÇÃO INICIAL ===\n");
+
+            string option = AskString("Deseja baixar as dependências? (Y/N)", "Y").Trim().ToUpperInvariant();
+            bool downloadDependencies = option == "Y" || option == "SIM";
+            bool skipManualSdNextPath = false;
+            bool skipManualDeepLivePath = false;
+            bool skipManualRvcPath = false;
+
+            if (downloadDependencies)
+            {
+                string installFolder = AskPath(
+                    "Pasta para instalar o SD.Next e o DeepLiveCam",
+                    Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "VexAI_SDNext"),
+                    isDirectory: true
+                );
+
+                await Installer(installFolder);
+
+                _config.SdNextBatPath = Path.Combine(installFolder, "automatic", "iniciar_intel.bat");
+                skipManualSdNextPath = true;
+                skipManualDeepLivePath = true;
+                skipManualRvcPath = true;
+            }
+            else if (option == "N" || option == "NAO" || option == "NO")
+            {
+                _config.SdNextBatPath = AskPath(
+                    "Caminho do .bat de inicialização do SD.Next [Enter para pular]",
+                    "",
+                    isDirectory: false,
+                    optional: true
+                );
+            }
+            else
+            {
+                Console.WriteLine("Opção inválida");
+                return;
+            }
 
             _config.OutputFolder = AskPath(
                 "Pasta de saída para arquivos gerados",
@@ -49,31 +241,40 @@ namespace VexAI
                 isDirectory: true
             );
 
-            _config.RvcFolderPath = AskPath(
-                "Pasta raiz do RVC (contém venv/ e assets/weights/)",
-                "",
-                isDirectory: true
-            );
+            if (!skipManualRvcPath)
+            {
+                _config.RvcFolderPath = AskPath(
+                    "Pasta raiz do RVC (contém venv/ e assets/weights/)",
+                    "",
+                    isDirectory: true
+                );
+            }
 
-            _config.DeepLiveFastPath = AskPath(
-                "Pasta do Deep-Live-Cam (modo Rápido/DirectML)",
-                "",
-                isDirectory: true
-            );
+            if (!skipManualDeepLivePath)
+            {
+                _config.DeepLiveFastPath = AskPath(
+                    "Pasta do Deep-Live-Cam (modo Rápido/DirectML)",
+                    "",
+                    isDirectory: true
+                );
 
-            _config.DeepLiveEnhancedPath = AskPath(
-                "Pasta do Deep-Live-Cam (modo Melhorado/OpenVINO) [Enter para pular]",
-                _config.DeepLiveFastPath,
-                isDirectory: true,
-                optional: true
-            );
+                _config.DeepLiveEnhancedPath = AskPath(
+                    "Pasta do Deep-Live-Cam (modo Melhorado/OpenVINO) [Enter para pular]",
+                    _config.DeepLiveFastPath,
+                    isDirectory: true,
+                    optional: true
+                );
+            }
 
-            _config.SdNextBatPath = AskPath(
-                "Caminho do .bat de inicialização do SD.Next [Enter para pular]",
-                "",
-                isDirectory: false,
-                optional: true
-            );
+            if (!skipManualSdNextPath)
+            {
+                _config.SdNextBatPath = AskPath(
+                    "Caminho do .bat de inicialização do SD.Next [Enter para pular]",
+                    _config.SdNextBatPath,
+                    isDirectory: false,
+                    optional: true
+                );
+            }
 
             _config.SdNextUrl = AskString(
                 "URL da API do SD.Next",
@@ -121,7 +322,7 @@ namespace VexAI
                         break;
 
                     case "config":
-                        RunSetupWizard();
+                        await RunSetupWizard();
                         _imageService = new ImageService(_config);
                         _voiceService = new VoiceService(_config);
                         _queue = new ProcessingQueue(_imageService, _voiceService);
