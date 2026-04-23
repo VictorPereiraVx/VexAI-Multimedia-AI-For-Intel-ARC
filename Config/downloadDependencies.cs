@@ -26,7 +26,6 @@ namespace VexAI.Config
         {
             Console.WriteLine("Iniciando instalação do SD.Next para Intel ARC...");
 
-            // Passo 1: Clonar o repositório
             CloneRepository();
 
             ApplyCustomConfigurations();
@@ -68,14 +67,12 @@ namespace VexAI.Config
         {
             Console.WriteLine("Aplicando configurações para Intel ARC...");
 
-            // 1. Criar o iniciar_intel.bat
             string batPath = Path.Combine(_sdNextFolder, "iniciar_intel.bat");
             string batContent = @"@echo off
 set COMMANDLINE_ARGS=--use-openvino --api --listen --autolaunch --insecure
 call webui.bat";
             File.WriteAllText(batPath, batContent);
 
-            // 2. Criar o config.json personalizado
             string configPath = Path.Combine(_sdNextFolder, "config.json");
             string configContent = @"{
   ""sd_model_checkpoint"": ""dreamshaper_8 [879db523c3]"",
@@ -115,7 +112,7 @@ call webui.bat";
             Console.WriteLine($"Baixando modelo {ModelFileName} (Isso pode demorar, são ~2GB+)...");
 
             using var httpClient = new HttpClient();
-            httpClient.Timeout = TimeSpan.FromHours(1); // Modelos são pesados
+            httpClient.Timeout = TimeSpan.FromHours(1);
 
             using var response = await httpClient.GetAsync(ModelDownloadUrl, HttpCompletionOption.ResponseHeadersRead);
             response.EnsureSuccessStatusCode();
@@ -123,7 +120,7 @@ call webui.bat";
             using var contentStream = await response.Content.ReadAsStreamAsync();
             using var fileStream = new FileStream(modelPath, FileMode.Create, FileAccess.Write, FileShare.None, 8192, true);
 
-            // Aqui você poderia implementar um progresso de download para a interface do VexAI
+           
             await contentStream.CopyToAsync(fileStream);
 
             Console.WriteLine("Download do modelo concluído!");

@@ -13,12 +13,9 @@ namespace VexAI.Installers
         private readonly string _installDirectory;
         private readonly string _deepLiveFolder;
 
-        // ZIP com todos os modelos (~1GB) hospedado no Google Drive
-        // Substitua FILE_ID pelo ID real do seu arquivo no Drive
         private const string ModelsZipGoogleDriveFileId = "1evI9mzgd983KdGKlNvjE4eQdTe1ogojr";
         private const string GfpganUrl = "https://github.com/TencentARC/GFPGAN/releases/download/v1.3.0/GFPGANv1.4.pth";
 
-        // URL corrigida do inswapper (fallback caso o ZIP não funcione)
         private const string InswapperUrl = "https://huggingface.co/ezioruan/inswapper_128.onnx/resolve/main/inswapper_128.onnx";
 
         public DeepLiveCamInstaller(string targetDirectory)
@@ -74,7 +71,6 @@ namespace VexAI.Installers
             string modelsDir = Path.Combine(_deepLiveFolder, "models");
             Directory.CreateDirectory(modelsDir);
 
-            // Verifica se os modelos já existem (inswapper é o mais importante)
             string inswapperPath = Path.Combine(modelsDir, "inswapper_128.onnx");
             if (File.Exists(inswapperPath))
             {
@@ -85,19 +81,16 @@ namespace VexAI.Installers
             using var httpClient = new HttpClient();
             httpClient.Timeout = TimeSpan.FromHours(2);
 
-            // Tenta baixar o ZIP de modelos do Google Drive (todos de uma vez)
             bool zipSuccess = await TryDownloadModelsZipAsync(httpClient, modelsDir);
 
             if (!zipSuccess)
             {
-                // Fallback: baixar modelos individualmente
                 Console.ForegroundColor = ConsoleColor.Yellow;
                 Console.WriteLine("[Aviso] Download via ZIP falhou. Tentando download individual dos modelos...");
                 Console.ResetColor();
                 await DownloadModelIndividualAsync(httpClient, InswapperUrl, inswapperPath, "inswapper_128.onnx");
             }
 
-            // GFPGAN sempre baixado individualmente (está no GitHub Releases)
             string gfpganPath = Path.Combine(modelsDir, "GFPGANv1.4.pth");
             if (!File.Exists(gfpganPath))
             {
@@ -128,8 +121,6 @@ namespace VexAI.Installers
                 Console.WriteLine("Baixando pacote de modelos do Google Drive (~1GB)...");
                 Console.WriteLine("Isso pode demorar dependendo da sua conexão. Aguarde...");
 
-                // Passo 1: Requisição inicial — para arquivos grandes o Drive retorna
-                // uma página HTML de aviso de vírus em vez do arquivo direto.
                 string firstUrl = $"https://drive.google.com/uc?export=download&id={ModelsZipGoogleDriveFileId}";
 
                 using var firstResponse = await httpClient.GetAsync(firstUrl, HttpCompletionOption.ResponseHeadersRead);
@@ -140,18 +131,14 @@ namespace VexAI.Installers
 
                 if (contentType.Contains("text/html"))
                 {
-                    // Drive retornou página de aviso — precisamos extrair o token de confirmação
                     Console.WriteLine("  [Drive] Aviso de verificação detectado. Extraindo token de confirmação...");
 
                     string html = await firstResponse.Content.ReadAsStringAsync();
 
-                    // O token está em um campo oculto ou na URL do formulário de confirmação
-                    // Padrão atual: &confirm=XXXXX ou value="XXXXX" próximo a "confirm"
                     string confirmToken = ExtractGoogleDriveConfirmToken(html);
 
                     if (string.IsNullOrEmpty(confirmToken))
                     {
-                        // Fallback: usar confirm=t que força o download em alguns casos
                         confirmToken = "t";
                         Console.WriteLine("  [Drive] Token não encontrado, usando confirm=t como fallback.");
                     }
@@ -160,14 +147,12 @@ namespace VexAI.Installers
                         Console.WriteLine($"  [Drive] Token extraído com sucesso.");
                     }
 
-                    // Também captura o cookie de sessão retornado pelo Drive (obrigatório)
                     string cookies = "";
                     if (firstResponse.Headers.TryGetValues("Set-Cookie", out var cookieValues))
                         cookies = string.Join("; ", cookieValues.Select(c => c.Split(';')[0]));
 
                     finalUrl = $"https://drive.google.com/uc?export=download&id={ModelsZipGoogleDriveFileId}&confirm={confirmToken}";
 
-                    // Passo 2: Requisição real com token + cookie de sessão
                     using var request = new HttpRequestMessage(HttpMethod.Get, finalUrl);
                     if (!string.IsNullOrEmpty(cookies))
                         request.Headers.Add("Cookie", cookies);
@@ -179,7 +164,6 @@ namespace VexAI.Installers
                 }
                 else
                 {
-                    // Arquivo pequeno ou Drive entregou direto sem aviso
                     await StreamToFileWithProgressAsync(firstResponse, zipPath);
                 }
 
@@ -199,23 +183,17 @@ namespace VexAI.Installers
             }
         }
 
-        /// <summary>
-        /// Extrai o token de confirmação da página HTML de aviso do Google Drive.
-        /// O Drive usa diferentes padrões dependendo da versão — tentamos todos.
-        /// </summary>
+
         private static string ExtractGoogleDriveConfirmToken(string html)
         {
-            // Padrão 1: &amp;confirm=XXXXX na URL do formulário
             var match = System.Text.RegularExpressions.Regex.Match(html, @"confirm=([0-9A-Za-z_\-]+)");
             if (match.Success)
                 return match.Groups[1].Value;
 
-            // Padrão 2: value="XXXXX" em campo hidden chamado "confirm"
             match = System.Text.RegularExpressions.Regex.Match(html, @"name=""confirm""\s+value=""([^""]+)""");
             if (match.Success)
                 return match.Groups[1].Value;
 
-            // Padrão 3: invertido — value antes do name
             match = System.Text.RegularExpressions.Regex.Match(html, @"value=""([^""]+)""\s+name=""confirm""");
             if (match.Success)
                 return match.Groups[1].Value;
@@ -223,9 +201,6 @@ namespace VexAI.Installers
             return null;
         }
 
-        /// <summary>
-        /// Lê o stream de uma resposta HTTP e salva em arquivo, exibindo progresso.
-        /// </summary>
         private static async Task StreamToFileWithProgressAsync(HttpResponseMessage response, string destPath)
         {
             long? totalBytes = response.Content.Headers.ContentLength;
@@ -253,7 +228,6 @@ namespace VexAI.Installers
                 }
                 else
                 {
-                    // Tamanho desconhecido — mostra só o MB baixado
                     if (downloaded % (10 * 1024 * 1024) == 0)
                         Console.Write($"\r  Baixado: {downloaded / 1024 / 1024}MB...");
                 }
@@ -282,7 +256,6 @@ namespace VexAI.Installers
         {
             Console.WriteLine("Criando scripts de inicialização para Intel ARC...");
 
-            // Script 1: Instalador de dependências isolado (venv)
             string installBatPath = Path.Combine(_deepLiveFolder, "1_INSTALAR_DEPENDENCIAS.bat");
             string installContent = @"@echo off
 echo Criando ambiente virtual Python...
@@ -296,7 +269,6 @@ echo Instalacao concluida com sucesso!
 pause";
             File.WriteAllText(installBatPath, installContent);
 
-            // Script 2: Inicializador com OpenVINO (baseado no run.py do repositório)
             string runBatPath = Path.Combine(_deepLiveFolder, "2_INICIAR_INTEL_ARC.bat");
             string runContent = @"@echo off
 call venv\Scripts\activate

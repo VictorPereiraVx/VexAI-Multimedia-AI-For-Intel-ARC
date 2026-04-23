@@ -39,7 +39,6 @@ namespace VexAI.Installers
 
             try
             {
-                // 1. Descarregar o ZIP
                 Console.WriteLine("A transferir o FFmpeg (Isto pode demorar um pouco)...");
                 using (var httpClient = new HttpClient())
                 {
@@ -51,7 +50,6 @@ namespace VexAI.Installers
                     await response.Content.CopyToAsync(fs);
                 }
 
-                // 2. Extrair apenas os executáveis (.exe)
                 Console.WriteLine("A extrair ficheiros...");
                 using (ZipArchive archive = ZipFile.OpenRead(zipPath))
                 {
@@ -65,11 +63,9 @@ namespace VexAI.Installers
                     }
                 }
 
-                // 3. Limpeza
                 Console.WriteLine("A limpar ficheiros temporários...");
                 File.Delete(zipPath);
 
-                // 4. Salvar o caminho do ffmpeg.exe no config para uso pelos serviços
                 SaveFfmpegPathToConfig(ffmpegExe);
 
                 Console.ForegroundColor = ConsoleColor.Green;

@@ -61,10 +61,8 @@ namespace VexAI.Installers
         {
             Console.WriteLine("Configurando modelo padrão (Lula)...");
             
-            // Onde o arquivo lula.pth está agora (raiz do seu projeto VexAI)
             string sourceFile = Path.Combine(_projectRoot, "lula.pth");
             
-            // Onde ele deve ficar no RVC
             string targetDir = Path.Combine(_rvcFolder, "assets", "weights");
             string targetFile = Path.Combine(targetDir, "lula.pth");
 
@@ -90,7 +88,6 @@ namespace VexAI.Installers
         {
             Console.WriteLine("Criando scripts de inicialização...");
 
-            // Script de Instalação
             string installBat = Path.Combine(_rvcFolder, "1_INSTALAR_RVC.bat");
             string installContent = @"@echo off
 echo Criando ambiente virtual...
@@ -106,7 +103,6 @@ echo Instalacao concluida!
 pause";
             File.WriteAllText(installBat, installContent);
 
-            // Script de Execução (infer-web.py fornecido por você)
             string runBat = Path.Combine(_rvcFolder, "2_INICIAR_RVC.bat");
             string runContent = @"@echo off
 call venv\Scripts\activate
