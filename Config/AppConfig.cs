@@ -11,6 +11,7 @@ namespace VexAI.Config
         public string DeepLiveEnhancedPath { get; set; } = "";
         public string WatermarkImagePath { get; set; } = "";
         public string OutputFolder { get; set; } = "";
+        public string FfmpegPath { get; set; } = "";  // Caminho completo do ffmpeg.exe (ex: tools\ffmpeg\bin\ffmpeg.exe)
         public bool AutoStartSdNext { get; set; } = true;
 
         private static readonly string ConfigPath = Path.Combine(AppContext.BaseDirectory, "config.json");

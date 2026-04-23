@@ -97,8 +97,11 @@ echo Criando ambiente virtual...
 python -m venv venv
 call venv\Scripts\activate
 echo Instalando dependencias (isso pode demorar)...
-pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
+pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
+pip install openvino onnxruntime-openvino
 pip install -r requirements.txt
+echo Instalando audio-separator...
+pip install audio-separator
 echo Instalacao concluida!
 pause";
             File.WriteAllText(installBat, installContent);

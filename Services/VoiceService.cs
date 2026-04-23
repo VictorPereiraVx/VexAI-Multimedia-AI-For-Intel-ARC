@@ -7,6 +7,7 @@ namespace VexAI.Services
     {
         private readonly AppConfig _config;
         private readonly string _outputFolder;
+        private readonly string _ffmpegExe;
 
         public VoiceService(AppConfig config)
         {
@@ -14,6 +15,11 @@ namespace VexAI.Services
             _outputFolder = string.IsNullOrWhiteSpace(config.OutputFolder)
                 ? Path.Combine(AppContext.BaseDirectory, "output", "audio")
                 : Path.Combine(config.OutputFolder, "audio");
+
+            // Usa caminho completo do FFmpeg se configurado, caso contrário tenta PATH do sistema
+            _ffmpegExe = !string.IsNullOrWhiteSpace(config.FfmpegPath) && File.Exists(config.FfmpegPath)
+                ? config.FfmpegPath
+                : "ffmpeg";
 
             Directory.CreateDirectory(_outputFolder);
         }
@@ -138,7 +144,7 @@ namespace VexAI.Services
         {
             var psi = new ProcessStartInfo
             {
-                FileName = "ffmpeg",
+                FileName = _ffmpegExe,
                 Arguments = $"-i \"{voice}\" -i \"{instrumental}\" -filter_complex \"amix=inputs=2:duration=longest:dropout_transition=2\" \"{output}\" -y",
                 CreateNoWindow = true,
                 UseShellExecute = false
@@ -151,7 +157,7 @@ namespace VexAI.Services
         {
             var psi = new ProcessStartInfo
             {
-                FileName = "ffmpeg",
+                FileName = _ffmpegExe,
                 Arguments = $"-i \"{video}\" -vn -acodec pcm_s16le -ar 44100 -ac 2 \"{output}\" -y",
                 CreateNoWindow = true,
                 UseShellExecute = false
@@ -164,7 +170,7 @@ namespace VexAI.Services
         {
             var psi = new ProcessStartInfo
             {
-                FileName = "ffmpeg",
+                FileName = _ffmpegExe,
                 Arguments = $"-i \"{video}\" -i \"{audio}\" -c:v copy -map 0:v -map 1:a -shortest \"{output}\" -y",
                 CreateNoWindow = true,
                 UseShellExecute = false
@@ -176,7 +182,8 @@ namespace VexAI.Services
         private async Task<bool> RunRvcInferenceAsync(string input, string output, string model, int pitch)
         {
             string python = Path.Combine(_config.RvcFolderPath, "venv", "Scripts", "python.exe");
-            string script = Path.Combine(_config.RvcFolderPath, "tools", "infer_cli.py");
+            // infer_cli.py incluído no projeto em Config\ExtraConfig\
+            string script = Path.Combine(AppContext.BaseDirectory, "Config", "ExtraConfig", "infer_cli.py");
 
             string argsGpu = $"\"{script}\" --dml --f0up_key {pitch} --input_path \"{input}\" --opt_path \"{output}\" --model_name \"{model}.pth\" --is_half False --f0method rmvpe";
             await RunPythonAsync(python, argsGpu);

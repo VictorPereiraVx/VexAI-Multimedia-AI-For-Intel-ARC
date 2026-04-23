@@ -13,7 +13,7 @@ namespace VexAI.Config
         private readonly string _sdNextFolder;
 
         // URL direta para o modelo Dreamshaper 8 no HuggingFace (formato safetensors)
-        private const string ModelDownloadUrl = "https://huggingface.co/Lykon/DreamShaper/resolve/main/DreamShaper_8_pruned.safetensors";
+        private const string ModelDownloadUrl = "https://huggingface.co/Lykon/dreamshaper-8/resolve/main/DreamShaper8_pruned.safetensors";
         private const string ModelFileName = "dreamshaper_8.safetensors";
 
         public downloadDependencies(string targetDirectory)

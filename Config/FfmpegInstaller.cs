@@ -3,6 +3,7 @@ using System.IO;
 using System.IO.Compression;
 using System.Net.Http;
 using System.Threading.Tasks;
+using VexAI.Config;
 
 namespace VexAI.Installers
 {
@@ -10,13 +11,15 @@ namespace VexAI.Installers
     {
         private readonly string _installDirectory;
         private readonly string _ffmpegFolder;
+        private readonly AppConfig _config;
 
         private const string FfmpegZipUrl = "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl.zip";
 
-        public FfmpegInstaller(string targetDirectory)
+        public FfmpegInstaller(string targetDirectory, AppConfig config)
         {
             _installDirectory = targetDirectory;
             _ffmpegFolder = Path.Combine(_installDirectory, "tools", "ffmpeg");
+            _config = config;
         }
 
         public async Task InstallAsync()
@@ -27,6 +30,7 @@ namespace VexAI.Installers
             if (File.Exists(ffmpegExe))
             {
                 Console.WriteLine("O FFmpeg já está instalado. Pulando download.");
+                SaveFfmpegPathToConfig(ffmpegExe);
                 return;
             }
 
@@ -53,11 +57,9 @@ namespace VexAI.Installers
                 {
                     foreach (ZipArchiveEntry entry in archive.Entries)
                     {
-                        // Queremos apenas o ffmpeg.exe e o ffprobe.exe que estão dentro da pasta "bin/"
                         if (entry.FullName.Contains("/bin/") && entry.Name.EndsWith(".exe"))
                         {
                             string destinationPath = Path.Combine(_ffmpegFolder, entry.Name);
-                            // Se já existir, substitui
                             entry.ExtractToFile(destinationPath, true);
                         }
                     }
@@ -66,6 +68,9 @@ namespace VexAI.Installers
                 // 3. Limpeza
                 Console.WriteLine("A limpar ficheiros temporários...");
                 File.Delete(zipPath);
+
+                // 4. Salvar o caminho do ffmpeg.exe no config para uso pelos serviços
+                SaveFfmpegPathToConfig(ffmpegExe);
 
                 Console.ForegroundColor = ConsoleColor.Green;
                 Console.WriteLine("Instalação do FFmpeg concluída com sucesso!");
@@ -77,9 +82,15 @@ namespace VexAI.Installers
                 Console.WriteLine($"Erro ao instalar o FFmpeg: {ex.Message}");
                 Console.ResetColor();
 
-                // Limpa o zip corrompido se falhar
                 if (File.Exists(zipPath)) File.Delete(zipPath);
             }
+        }
+
+        private void SaveFfmpegPathToConfig(string ffmpegExePath)
+        {
+            _config.FfmpegPath = ffmpegExePath;
+            _config.Save();
+            Console.WriteLine($"[Config] Caminho do FFmpeg salvo: {ffmpegExePath}");
         }
     }
 }

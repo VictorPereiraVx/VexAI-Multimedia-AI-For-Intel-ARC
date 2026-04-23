@@ -16,4 +16,15 @@
     <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- Modelo de voz padrão: copiado para a pasta de build junto com o .exe -->
+    <None Update="lula.pth">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <!-- Script infer_cli.py incluído no projeto para substituir o tools/infer_cli.py do RVC -->
+    <None Update="Config\ExtraConfig\infer_cli.py">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
 </Project>
