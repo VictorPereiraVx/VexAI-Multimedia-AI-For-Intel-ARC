@@ -55,13 +55,7 @@ namespace VexAI
                 Console.ResetColor();
             }
 
-            if (!pythonInstalado)
-            {
-                Console.ForegroundColor = ConsoleColor.Red;
-                Console.WriteLine("[X] Erro: Python 3.10.x não foi encontrado ou não está no PATH.");
-                Console.WriteLine("    Por favor, instale o Python 3.10.6 e MARQUE A OPÇÃO 'Add Python to PATH' na instalação.");
-                Console.ResetColor();
-            }
+            // pythonInstalado já lida com a mensagem de versão errada — não repetimos aqui
 
             return gitInstalado && pythonInstalado;
         }
@@ -168,9 +162,21 @@ namespace VexAI
 
             try
             {
-                if (!VerificarRequisitosSistema())
+                if (!VerificarGit())
                 {
-                    Console.WriteLine("Erro: Python 3.10.6 ou Git não encontrados.");
+                    Console.ForegroundColor = ConsoleColor.Red;
+                    Console.WriteLine("[X] Git não encontrado. Instale em: https://git-scm.com/downloads");
+                    Console.ResetColor();
+                    return;
+                }
+
+                // Garante Python 3.10 — oferece instalação automática se necessário
+                bool pythonOk = await PythonInstaller.EnsurePython310Async();
+                if (!pythonOk)
+                {
+                    Console.ForegroundColor = ConsoleColor.Red;
+                    Console.WriteLine("[X] Python 3.10.x indisponível. Instalação interrompida.");
+                    Console.ResetColor();
                     return;
                 }
 
