@@ -28,7 +28,7 @@ namespace VexAI
                 await RunSetupWizard();
             }
 
-            StartupManager.StartDependencies(_config);
+            await StartupManager.StartDependenciesAsync(_config);
 
             _imageService = new ImageService(_config);
             _voiceService = new VoiceService(_config);
@@ -222,12 +222,12 @@ namespace VexAI
             }
             else if (option == "N" || option == "NAO" || option == "NO")
             {
-                _config.SdNextBatPath = AskPath(
+                _config.SdNextBatPath = StartupManager.ResolveBatPath(AskPath(
                     "Caminho do .bat de inicialização do SD.Next [Enter para pular]",
                     "",
                     isDirectory: false,
                     optional: true
-                );
+                ));
             }
             else
             {
@@ -268,12 +268,12 @@ namespace VexAI
 
             if (!skipManualSdNextPath)
             {
-                _config.SdNextBatPath = AskPath(
+                _config.SdNextBatPath = StartupManager.ResolveBatPath(AskPath(
                     "Caminho do .bat de inicialização do SD.Next [Enter para pular]",
                     _config.SdNextBatPath,
                     isDirectory: false,
                     optional: true
-                );
+                ));
             }
 
             _config.SdNextUrl = AskString(
