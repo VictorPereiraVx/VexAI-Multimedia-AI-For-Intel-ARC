@@ -163,7 +163,7 @@ namespace VexAI
 
             var sdInstaller = new downloadDependencies(pastaInstalacao);
             var deepLiveInstaller = new DeepLiveCamInstaller(pastaInstalacao);
-            var ffmpegInstaller = new FfmpegInstaller(pastaInstalacao);
+            var ffmpegInstaller = new FfmpegInstaller(pastaInstalacao, _config);
             var rvcInstaller = new RvcInstaller(pastaInstalacao);
 
             try
