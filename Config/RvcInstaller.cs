@@ -25,11 +25,42 @@ namespace VexAI.Installers
             CloneRepository();
             InstallDefaultModel();
             CreateScripts();
+            RunDependencyInstaller();
 
             Console.WriteLine("Instalação do RVC-BETA concluída!");
-            Console.ForegroundColor = ConsoleColor.Yellow;
-            Console.WriteLine("IMPORTANTE: Execute '1_INSTALAR_RVC.bat' na pasta do RVC para configurar as dependências.");
-            Console.ResetColor();
+        }
+
+        private void RunDependencyInstaller()
+        {
+            string installBat = Path.Combine(_rvcFolder, "1_INSTALAR_RVC.bat");
+            if (!File.Exists(installBat)) return;
+
+            Console.WriteLine("\n[RVC] Instalando dependências Python automaticamente...");
+            Console.WriteLine("[RVC] Uma janela de terminal será aberta. Aguarde ela fechar para continuar.");
+
+            var psi = new ProcessStartInfo
+            {
+                FileName = installBat,
+                WorkingDirectory = _rvcFolder,
+                UseShellExecute = true,
+                WindowStyle = ProcessWindowStyle.Normal
+            };
+
+            using var proc = Process.Start(psi)!;
+            proc.WaitForExit();
+
+            if (proc.ExitCode == 0)
+            {
+                Console.ForegroundColor = ConsoleColor.Green;
+                Console.WriteLine("[RVC] Dependências instaladas com sucesso!");
+                Console.ResetColor();
+            }
+            else
+            {
+                Console.ForegroundColor = ConsoleColor.Yellow;
+                Console.WriteLine($"[RVC] Instalador encerrou com código {proc.ExitCode}. Verifique a janela de log.");
+                Console.ResetColor();
+            }
         }
 
         private void CloneRepository()

@@ -13,7 +13,7 @@ namespace VexAI.Config
         private readonly string _sdNextFolder;
 
         // URL direta para o modelo Dreamshaper 8 no HuggingFace (formato safetensors)
-        private const string ModelDownloadUrl = "https://huggingface.co/Lykon/dreamshaper-8/resolve/main/DreamShaper8_pruned.safetensors";
+        private const string ModelDownloadUrl = "https://huggingface.co/Lykon/DreamShaper/resolve/main/DreamShaper_8_pruned.safetensors";
         private const string ModelFileName = "dreamshaper_8.safetensors";
 
         public downloadDependencies(string targetDirectory)
@@ -109,21 +109,30 @@ call webui.bat";
                 return;
             }
 
-            Console.WriteLine($"Baixando modelo {ModelFileName} (Isso pode demorar, são ~2GB+)...");
+            Console.WriteLine($"Baixando modelo {ModelFileName} (~2.1 GB — pode demorar bastante)...");
 
             using var httpClient = new HttpClient();
-            httpClient.Timeout = TimeSpan.FromHours(1);
+            httpClient.Timeout = TimeSpan.FromHours(2);
 
             using var response = await httpClient.GetAsync(ModelDownloadUrl, HttpCompletionOption.ResponseHeadersRead);
             response.EnsureSuccessStatusCode();
 
+            long? totalBytes = response.Content.Headers.ContentLength;
             using var contentStream = await response.Content.ReadAsStreamAsync();
             using var fileStream = new FileStream(modelPath, FileMode.Create, FileAccess.Write, FileShare.None, 8192, true);
 
-           
-            await contentStream.CopyToAsync(fileStream);
-
-            Console.WriteLine("Download do modelo concluído!");
+            var buffer = new byte[81920];
+            long downloaded = 0; int read;
+            while ((read = await contentStream.ReadAsync(buffer)) > 0)
+            {
+                await fileStream.WriteAsync(buffer.AsMemory(0, read));
+                downloaded += read;
+                string progress = totalBytes.HasValue
+                    ? $"{downloaded / 1024 / 1024} MB / {totalBytes.Value / 1024 / 1024} MB ({downloaded * 100 / totalBytes.Value}%)"
+                    : $"{downloaded / 1024 / 1024} MB";
+                Console.Write($"\r  Baixando... {progress}   ");
+            }
+            Console.WriteLine("\nDownload do modelo concluído!");
         }
     }
 }

@@ -31,12 +31,42 @@ namespace VexAI.Installers
             CloneRepository();
             await DownloadModelsAsync();
             CreateLaunchScripts();
+            RunDependencyInstaller();
 
             Console.WriteLine("Instalação do DeepLiveCam concluída!");
-            Console.ForegroundColor = ConsoleColor.Yellow;
-            Console.WriteLine("IMPORTANTE: Para o primeiro uso, execute o arquivo '1_INSTALAR_DEPENDENCIAS.bat'");
-            Console.WriteLine($"localizado em: {_deepLiveFolder}");
-            Console.ResetColor();
+        }
+
+        private void RunDependencyInstaller()
+        {
+            string installBat = Path.Combine(_deepLiveFolder, "1_INSTALAR_DEPENDENCIAS.bat");
+            if (!File.Exists(installBat)) return;
+
+            Console.WriteLine("\n[DeepLiveCam] Instalando dependências Python automaticamente...");
+            Console.WriteLine("[DeepLiveCam] Uma janela de terminal será aberta. Aguarde ela fechar para continuar.");
+
+            var psi = new ProcessStartInfo
+            {
+                FileName = installBat,
+                WorkingDirectory = _deepLiveFolder,
+                UseShellExecute = true,   // janela visível para o usuário acompanhar
+                WindowStyle = ProcessWindowStyle.Normal
+            };
+
+            using var proc = Process.Start(psi)!;
+            proc.WaitForExit();
+
+            if (proc.ExitCode == 0)
+            {
+                Console.ForegroundColor = ConsoleColor.Green;
+                Console.WriteLine("[DeepLiveCam] Dependências instaladas com sucesso!");
+                Console.ResetColor();
+            }
+            else
+            {
+                Console.ForegroundColor = ConsoleColor.Yellow;
+                Console.WriteLine($"[DeepLiveCam] Instalador encerrou com código {proc.ExitCode}. Verifique a janela de log.");
+                Console.ResetColor();
+            }
         }
 
         private void CloneRepository()
@@ -105,12 +135,12 @@ namespace VexAI.Installers
         }
 
         /// <summary>
-        /// Baixa o ZIP de modelos do Google Drive e extrai na pasta models/.
+        /// Baixa o ZIP de modelos do Google Drive.
         /// 
-        /// Arquivos >100MB no Google Drive exigem tratamento especial:
-        /// A primeira requisição retorna uma página HTML de aviso de vírus.
-        /// É necessário extrair o token de confirmação dessa resposta e
-        /// fazer uma segunda requisição com esse token para obter o arquivo real.
+        /// O Google Drive para arquivos grandes bloqueia downloads automáticos com
+        /// uma página de confirmação de vírus. A abordagem mais confiável em 2025
+        /// é usar a URL de export com confirm=t + cookie de bypass na mesma requisição.
+        /// Se ainda assim retornar HTML, faz fallback para download individual.
         /// </summary>
         private async Task<bool> TryDownloadModelsZipAsync(HttpClient httpClient, string modelsDir)
         {
@@ -121,84 +151,104 @@ namespace VexAI.Installers
                 Console.WriteLine("Baixando pacote de modelos do Google Drive (~1GB)...");
                 Console.WriteLine("Isso pode demorar dependendo da sua conexão. Aguarde...");
 
-                string firstUrl = $"https://drive.google.com/uc?export=download&id={ModelsZipGoogleDriveFileId}";
+                // Método 1: URL direta com confirm=t (bypassa a tela de vírus)
+                string downloadUrl = $"https://drive.google.com/uc?export=download&id={ModelsZipGoogleDriveFileId}&confirm=t";
 
-                using var firstResponse = await httpClient.GetAsync(firstUrl, HttpCompletionOption.ResponseHeadersRead);
-                firstResponse.EnsureSuccessStatusCode();
+                using var request = new HttpRequestMessage(HttpMethod.Get, downloadUrl);
+                // Cookie necessário para o bypass funcionar
+                request.Headers.Add("Cookie", $"download_warning_{ModelsZipGoogleDriveFileId}=t");
 
-                string contentType = firstResponse.Content.Headers.ContentType?.MediaType ?? "";
-                string finalUrl;
+                using var response = await httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead);
+                response.EnsureSuccessStatusCode();
 
+                string contentType = response.Content.Headers.ContentType?.MediaType ?? "";
+
+                // Se retornou HTML, o Drive está exigindo outro formato de confirmação
                 if (contentType.Contains("text/html"))
                 {
-                    Console.WriteLine("  [Drive] Aviso de verificação detectado. Extraindo token de confirmação...");
+                    Console.WriteLine("  [Drive] Resposta HTML recebida. Tentando método alternativo...");
 
-                    string html = await firstResponse.Content.ReadAsStringAsync();
+                    string html = await response.Content.ReadAsStringAsync();
 
-                    string confirmToken = ExtractGoogleDriveConfirmToken(html);
-
-                    if (string.IsNullOrEmpty(confirmToken))
+                    // Extrai o uuid do form de confirmação (formato atual do Google Drive)
+                    string? uuid = ExtractGoogleDriveUuid(html);
+                    if (string.IsNullOrEmpty(uuid))
                     {
-                        confirmToken = "t";
-                        Console.WriteLine("  [Drive] Token não encontrado, usando confirm=t como fallback.");
-                    }
-                    else
-                    {
-                        Console.WriteLine($"  [Drive] Token extraído com sucesso.");
+                        Console.WriteLine("  [Drive] Não foi possível extrair token de confirmação do Drive.");
+                        return false;
                     }
 
-                    string cookies = "";
-                    if (firstResponse.Headers.TryGetValues("Set-Cookie", out var cookieValues))
-                        cookies = string.Join("; ", cookieValues.Select(c => c.Split(';')[0]));
+                    string confirmUrl = $"https://drive.google.com/uc?export=download&id={ModelsZipGoogleDriveFileId}&confirm=t&uuid={uuid}";
+                    using var confirmRequest = new HttpRequestMessage(HttpMethod.Get, confirmUrl);
+                    confirmRequest.Headers.Add("Cookie", $"download_warning_{ModelsZipGoogleDriveFileId}=t");
 
-                    finalUrl = $"https://drive.google.com/uc?export=download&id={ModelsZipGoogleDriveFileId}&confirm={confirmToken}";
-
-                    using var request = new HttpRequestMessage(HttpMethod.Get, finalUrl);
-                    if (!string.IsNullOrEmpty(cookies))
-                        request.Headers.Add("Cookie", cookies);
-
-                    using var finalResponse = await httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead);
+                    using var finalResponse = await httpClient.SendAsync(confirmRequest, HttpCompletionOption.ResponseHeadersRead);
                     finalResponse.EnsureSuccessStatusCode();
+
+                    string finalContentType = finalResponse.Content.Headers.ContentType?.MediaType ?? "";
+                    if (finalContentType.Contains("text/html"))
+                    {
+                        Console.WriteLine("  [Drive] Drive ainda retornou HTML após confirmação. Usando fallback individual.");
+                        return false;
+                    }
 
                     await StreamToFileWithProgressAsync(finalResponse, zipPath);
                 }
                 else
                 {
-                    await StreamToFileWithProgressAsync(firstResponse, zipPath);
+                    await StreamToFileWithProgressAsync(response, zipPath);
+                }
+
+                // Valida que o arquivo baixado é um ZIP real (não HTML disfarçado)
+                if (!IsValidZipFile(zipPath))
+                {
+                    Console.WriteLine("\n  [Drive] Arquivo baixado não é um ZIP válido. Usando fallback individual.");
+                    File.Delete(zipPath);
+                    return false;
                 }
 
                 Console.WriteLine("\nDownload concluído! Extraindo modelos...");
                 ZipFile.ExtractToDirectory(zipPath, modelsDir, overwriteFiles: true);
                 Console.WriteLine($"Modelos extraídos em: {modelsDir}");
-
                 File.Delete(zipPath);
                 return true;
             }
             catch (Exception ex)
             {
                 Console.WriteLine($"\n[Erro no download do ZIP]: {ex.Message}");
-                if (File.Exists(zipPath))
-                    File.Delete(zipPath);
+                if (File.Exists(zipPath)) File.Delete(zipPath);
                 return false;
             }
         }
 
-
-        private static string ExtractGoogleDriveConfirmToken(string html)
+        private static string? ExtractGoogleDriveUuid(string html)
         {
-            var match = System.Text.RegularExpressions.Regex.Match(html, @"confirm=([0-9A-Za-z_\-]+)");
-            if (match.Success)
-                return match.Groups[1].Value;
+            // Formato atual do Google Drive: &uuid=XXXX no form action
+            var match = System.Text.RegularExpressions.Regex.Match(html, @"uuid=([0-9a-f\-]+)");
+            if (match.Success) return match.Groups[1].Value;
 
-            match = System.Text.RegularExpressions.Regex.Match(html, @"name=""confirm""\s+value=""([^""]+)""");
-            if (match.Success)
-                return match.Groups[1].Value;
-
-            match = System.Text.RegularExpressions.Regex.Match(html, @"value=""([^""]+)""\s+name=""confirm""");
-            if (match.Success)
-                return match.Groups[1].Value;
+            // Fallback: campo hidden no form
+            match = System.Text.RegularExpressions.Regex.Match(html, @"name=""uuid""\s+value=""([^""]+)""");
+            if (match.Success) return match.Groups[1].Value;
 
             return null;
+        }
+
+        /// <summary>
+        /// Verifica se o arquivo começa com a assinatura de um ZIP (PK\x03\x04).
+        /// Evita tentar extrair HTML que o Drive retornou por engano.
+        /// </summary>
+        private static bool IsValidZipFile(string path)
+        {
+            try
+            {
+                using var fs = File.OpenRead(path);
+                if (fs.Length < 4) return false;
+                var header = new byte[4];
+                fs.ReadExactly(header);
+                return header[0] == 0x50 && header[1] == 0x4B && header[2] == 0x03 && header[3] == 0x04;
+            }
+            catch { return false; }
         }
 
         private static async Task StreamToFileWithProgressAsync(HttpResponseMessage response, string destPath)
